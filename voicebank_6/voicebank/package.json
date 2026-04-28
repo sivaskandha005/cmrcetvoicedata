@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": ["voice", "audio", "intranet", "students"],
+  "keywords": [
+    "voice",
+    "audio",
+    "intranet",
+    "students"
+  ],
   "author": "VoiceBank",
   "license": "MIT"
 }
