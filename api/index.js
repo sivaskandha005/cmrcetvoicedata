@@ -5,6 +5,9 @@ const path = require("path");
 const RECORDINGS_DIR = path.join("/tmp", "recordings");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
+// Helper to ensure roll numbers match folder names across all routes
+const sanitize = (str) => str.replace(/[^a-zA-Z0-9]/g, "_");
+
 if (!fs.existsSync(RECORDINGS_DIR)) fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 
 function setCORS(res) {
@@ -28,7 +31,7 @@ const server = http.createServer(async (req, res) => {
         req.on("end", () => {
             try {
                 const { studentInfo, audio, ext } = JSON.parse(body);
-                const folderName = studentInfo.roll.replace(/[^a-zA-Z0-9]/g, "_");
+                const folderName = sanitize(studentInfo.roll);
                 const studentDir = path.join(RECORDINGS_DIR, folderName);
                 if (!fs.existsSync(studentDir)) fs.mkdirSync(studentDir, { recursive: true });
 
@@ -37,7 +40,7 @@ const server = http.createServer(async (req, res) => {
                 
                 fs.writeFileSync(path.join(studentDir, fileName), Buffer.from(audio, "base64"));
                 
-                // Save meta-data with timestamp to fix "Invalid Date"
+                // Meta-data includes timestamp and fileName for the admin dashboard
                 const info = { ...studentInfo, timestamp, fileName };
                 fs.writeFileSync(path.join(studentDir, "info.json"), JSON.stringify(info));
 
@@ -51,7 +54,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // 2. SUMMARY ROUTE (Admin View)
+    // 2. SUMMARY ROUTE
     if (req.method === "GET" && pathname === "/summary") {
         if (authHeader !== ADMIN_PASSWORD) {
             res.writeHead(401); return res.end(JSON.stringify({ error: "Unauthorized" }));
@@ -66,12 +69,12 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify(data));
         } catch (err) {
             res.writeHead(500);
-            res.end(JSON.stringify({ error: "Storage read failed" }));
+            res.end(JSON.stringify({ error: "Read failed" }));
         }
         return;
     }
 
-    // 3. DOWNLOAD ROUTE
+    // 3. DOWNLOAD ROUTE (Fixes 404)
     if (req.method === "GET" && pathname === "/download") {
         const roll = url.searchParams.get("roll");
         const file = url.searchParams.get("file");
@@ -80,7 +83,7 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(400); return res.end("Missing parameters");
         }
 
-        const filePath = path.join(RECORDINGS_DIR, roll.replace(/[^a-zA-Z0-9]/g, "_"), file);
+        const filePath = path.join(RECORDINGS_DIR, sanitize(roll), file);
 
         if (fs.existsSync(filePath)) {
             res.writeHead(200, {
