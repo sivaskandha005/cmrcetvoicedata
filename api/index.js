@@ -21,7 +21,7 @@ const server = http.createServer(async (req, res) => {
     const pathname = url.pathname;
     const authHeader = req.headers['x-admin-password'];
 
-    // SAVE RECORDING
+    // 1. SAVE RECORDING
     if (req.method === "POST" && pathname === "/save-recording") {
         let body = "";
         req.on("data", chunk => body += chunk);
@@ -51,25 +51,35 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // SUMMARY ROUTE
+    // 2. SUMMARY ROUTE (Admin View)
     if (req.method === "GET" && pathname === "/summary") {
         if (authHeader !== ADMIN_PASSWORD) {
             res.writeHead(401); return res.end(JSON.stringify({ error: "Unauthorized" }));
         }
-        const folders = fs.readdirSync(RECORDINGS_DIR);
-        const data = folders.map(f => {
-            const p = path.join(RECORDINGS_DIR, f, "info.json");
-            return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p)) : null;
-        }).filter(x => x);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(data));
+        try {
+            const folders = fs.readdirSync(RECORDINGS_DIR);
+            const data = folders.map(f => {
+                const p = path.join(RECORDINGS_DIR, f, "info.json");
+                return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p)) : null;
+            }).filter(x => x);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(data));
+        } catch (err) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: "Storage read failed" }));
+        }
         return;
     }
 
-    // DOWNLOAD ROUTE
+    // 3. DOWNLOAD ROUTE
     if (req.method === "GET" && pathname === "/download") {
         const roll = url.searchParams.get("roll");
         const file = url.searchParams.get("file");
+
+        if (!roll || !file) {
+            res.writeHead(400); return res.end("Missing parameters");
+        }
+
         const filePath = path.join(RECORDINGS_DIR, roll.replace(/[^a-zA-Z0-9]/g, "_"), file);
 
         if (fs.existsSync(filePath)) {
@@ -83,6 +93,9 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+
+    res.writeHead(404);
+    res.end("Not Found");
 });
 
 module.exports = server;
