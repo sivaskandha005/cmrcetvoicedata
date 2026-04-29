@@ -1,21 +1,8 @@
 {
   "name": "voicebank",
   "version": "1.0.0",
-  "description": "Student Voice Data Collection System for Intranet",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "keywords": [
-    "voice",
-    "audio",
-    "intranet",
-    "students"
-  ],
-  "author": "VoiceBank",
-  "license": "MIT"
-}
-{
+  "description": "Student Voice Data Collection System with Permanent Storage",
+  "main": "api/index.js",
   "dependencies": {
     "@vercel/blob": "latest"
   }
