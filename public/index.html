@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceBank - Student Data Collection</title>
+    <title>VoiceBank - Student Registration</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; }
+        :root { --primary: #2563eb; --bg: #f8fafc; --danger: #dc2626; }
         body { font-family: system-ui, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); width: 100%; max-width: 500px; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
         .input-group { margin-bottom: 1rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
         input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-        .btn { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 1rem; }
-        .btn:disabled { background: #94a3b8; }
-        .status { margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none; }
-        .error { background: #fee2e2; color: #991b1b; }
-        .success { background: #dcfce7; color: #166534; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 1rem; transition: 0.2s; }
+        .status { margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none; border: 1px solid transparent; }
+        .error { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .success { background: #dcfce7; color: #166534; border-color: #86efac; }
+        #timer { font-weight: bold; color: var(--primary); margin-top: 8px; display: block; }
     </style>
 </head>
 <body>
@@ -24,89 +24,117 @@
     <h2>Student Voice Registration</h2>
     <div class="input-group">
         <label>Full Name</label>
-        <input type="text" id="name" placeholder="Enter your full name">
+        <input type="text" id="name" placeholder="Full Name">
     </div>
     <div class="input-group">
         <label>Roll Number</label>
-        <input type="text" id="roll" placeholder="Enter Roll Number">
+        <input type="text" id="roll" placeholder="Roll Number">
     </div>
 
     <button id="recordBtn" class="btn">Start Recording</button>
+    <small id="timer">Duration: 0s (Required: 5s - 30s)</small>
+    
     <div id="statusMsg" class="status"></div>
 </div>
 
 <script>
     let mediaRecorder;
     let audioChunks = [];
+    let startTime;
+    let timerInterval;
+    
     const recordBtn = document.getElementById('recordBtn');
     const statusMsg = document.getElementById('statusMsg');
+    const timerDisplay = document.getElementById('timer');
 
     recordBtn.addEventListener('click', async () => {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            const name = document.getElementById('name').value;
-            const roll = document.getElementById('roll').value;
-
-            if (!name || !roll) {
-                showStatus('Please enter both Name and Roll Number', 'error');
-                return;
-            }
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-
-                mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
-                mediaRecorder.onstop = () => uploadAudio(name, roll);
-
-                mediaRecorder.start();
-                recordBtn.innerText = 'Stop Recording';
-                recordBtn.style.background = '#dc2626';
-                showStatus('Recording...', 'success');
-            } catch (err) {
-                showStatus('Microphone access denied', 'error');
-            }
+            startRecording();
         } else {
-            mediaRecorder.stop();
-            recordBtn.innerText = 'Start Recording';
-            recordBtn.style.background = '#2563eb';
+            stopRecording();
         }
     });
 
-    async function uploadAudio(name, roll) {
+    async function startRecording() {
+        const name = document.getElementById('name').value.trim();
+        const roll = document.getElementById('roll').value.trim();
+
+        if (!name || !roll) {
+            showStatus('Please enter Name and Roll Number.', 'error');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => handleUpload(name, roll);
+
+            mediaRecorder.start();
+            startTime = Date.now();
+            
+            recordBtn.innerText = 'Stop Recording';
+            recordBtn.style.background = 'var(--danger)';
+            showStatus('Recording...', 'success');
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timerDisplay.innerText = `Duration: ${elapsed}s (Limit: 5s - 30s)`;
+                if (elapsed >= 30) stopRecording(); 
+            }, 1000);
+        } catch (err) {
+            showStatus('Microphone error. Please allow access.', 'error');
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            clearInterval(timerInterval);
+            recordBtn.innerText = 'Start Recording';
+            recordBtn.style.background = 'var(--primary)';
+        }
+    }
+
+    async function handleUpload(name, roll) {
+        const duration = (Date.now() - startTime) / 1000;
+
+        if (duration < 5) {
+            showStatus(`Too short (${Math.floor(duration)}s). Min 5s required.`, 'error');
+            return;
+        }
+
         showStatus('Uploading...', 'success');
         
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const reader = new FileReader();
-        
         reader.readAsDataURL(audioBlob);
+        
         reader.onloadend = async () => {
             const base64Audio = reader.result.split(',')[1];
             
-            const payload = {
-                studentInfo: { name, roll, timestamp: new Date().toISOString() },
-                audio: base64Audio,
-                ext: 'webm'
-            };
-
             try {
-                // IMPORTANT: Path is relative to work with Vercel Rewrites
-                const response = await fetch('/api/save-recording', {
+                // We call the simplified path defined in vercel.json
+                const response = await fetch('/save-recording', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        studentInfo: { name, roll, duration: duration.toFixed(1) },
+                        audio: base64Audio,
+                        ext: 'webm'
+                    })
                 });
 
-                const result = await response.json();
-
-                if (result.ok) {
-                    showStatus('Recording saved successfully!', 'success');
+                if (response.ok) {
+                    showStatus('✅ Saved successfully!', 'success');
                 } else {
-                    throw new Error(result.error || 'Server error');
+                    const errData = await response.json();
+                    showStatus('❌ Server Error: ' + (errData.error || 'Unknown'), 'error');
                 }
             } catch (err) {
-                showStatus('Failed to save recording. Check internet connection.', 'error');
-                console.error(err);
+                showStatus('❌ Connection error. Verify your Vercel deployment.', 'error');
             }
         };
     }
@@ -117,6 +145,5 @@
         statusMsg.style.display = 'block';
     }
 </script>
-
 </body>
 </html>
