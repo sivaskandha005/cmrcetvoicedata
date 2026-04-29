@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceBank - Admin Dashboard</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --danger: #dc2626; }
+        :root { --primary: #2563eb; --bg: #f8fafc; }
         body { font-family: system-ui, sans-serif; background: var(--bg); padding: 40px; }
         .container { max-width: 1000px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
@@ -13,7 +13,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; font-weight: 600; }
-        .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 13px; }
         .status-msg { padding: 10px; border-radius: 6px; margin-bottom: 10px; display: none; }
         .error { background: #fee2e2; color: #991b1b; }
     </style>
@@ -25,11 +25,8 @@
         <h1>Admin Dashboard</h1>
         <button onclick="loadData()" class="btn">Refresh Data</button>
     </div>
-
     <div id="status" class="status-msg"></div>
-
     <div class="card">
-        <h3>Student Recordings</h3>
         <table>
             <thead>
                 <tr>
@@ -40,9 +37,7 @@
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody id="studentTable">
-                <tr><td colspan="5">Click Refresh to load data.</td></tr>
-            </tbody>
+            <tbody id="studentTable"></tbody>
         </table>
     </div>
 </div>
@@ -51,69 +46,45 @@
     async function loadData() {
         const password = prompt("Enter Admin Password:");
         if (!password) return;
-
-        const statusDiv = document.getElementById('status');
         const tableBody = document.getElementById('studentTable');
-        
-        statusDiv.style.display = 'none';
         tableBody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
 
         try {
-            // Using relative path to match Vercel rewrites
             const response = await fetch('/summary', {
                 method: 'GET',
-                headers: {
-                    'X-Admin-Password': password,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'X-Admin-Password': password }
             });
-
-            if (!response.ok) {
-                throw new Error('Invalid password or server error');
-            }
-
+            if (!response.ok) throw new Error('Invalid password');
             const students = await response.json();
             renderTable(students);
-
         } catch (err) {
-            statusDiv.innerText = err.message;
-            statusDiv.className = 'status-msg error';
-            statusDiv.style.display = 'block';
-            tableBody.innerHTML = '<tr><td colspan="5">Failed to load data.</td></tr>';
+            document.getElementById('status').style.display = 'block';
+            document.getElementById('status').innerText = err.message;
+            tableBody.innerHTML = '';
         }
     }
 
     function renderTable(students) {
         const tableBody = document.getElementById('studentTable');
         if (students.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">No recordings found in temporary storage.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No recordings found.</td></tr>';
             return;
         }
-
-        tableBody.innerHTML = students.map(s => {
-            // Fix for "Invalid Date" - uses the timestamp field saved by the backend
-            const dateDisplay = s.timestamp ? new Date(s.timestamp).toLocaleString() : "Recently Recorded";
-            
-            return `
-                <tr>
-                    <td><strong>${s.roll || 'N/A'}</strong></td>
-                    <td>${s.name || 'Unknown'}</td>
-                    <td>${s.duration || '0'}s</td>
-                    <td>${dateDisplay}</td>
-                    <td>
-                        <a href="/download?roll=${encodeURIComponent(s.roll)}&file=${encodeURIComponent(s.fileName)}" 
-                           class="btn" style="background:#10b981;">
-                           Download ⬇️
-                        </a>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        tableBody.innerHTML = students.map(s => `
+            <tr>
+                <td><strong>${s.roll}</strong></td>
+                <td>${s.name}</td>
+                <td>${s.duration}s</td>
+                <td>${s.timestamp ? new Date(s.timestamp).toLocaleString() : 'N/A'}</td>
+                <td>
+                    <a href="/download?roll=${encodeURIComponent(s.roll)}&file=${encodeURIComponent(s.fileName)}" class="btn">
+                        Download ⬇️
+                    </a>
+                </td>
+            </tr>
+        `).join('');
     }
-
-    // Auto-load on page visit
     window.onload = loadData;
 </script>
-
 </body>
 </html>
