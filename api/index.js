@@ -1,62 +1,67 @@
 const http = require("http");
-const fs   = require("fs");
+const fs = require("fs");
 const path = require("path");
 
-// Vercel handles the port and static files. 
-// We only need the API logic here.
 const RECORDINGS_DIR = path.join("/tmp", "recordings");
-const PROMPTS_FILE   = path.join("/tmp", "prompts.json");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
-// Helper functions (keep these)
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on("data", c => chunks.push(c));
-    req.on("end",  () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
-  });
+// Helper to ensure directories exist in the temporary cloud storage
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
 }
-
-function setCORS(res) {
-  res.setHeader("Access-Control-Allow-Origin",  "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Password");
-}
-
-function json(res, status, data) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(data, null, 2));
-}
-
-// Ensure /tmp directories exist (Vercel recreates /tmp on every execution)
-if (!fs.existsSync(RECORDINGS_DIR)) fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 
 const server = http.createServer(async (req, res) => {
-  setCORS(res);
-  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+  // Set CORS headers so your frontend can talk to this API
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
 
-  // API Route: GET /api/student/:roll
-  if (req.method === "GET" && pathname.startsWith("/api/student/")) {
-    // ... existing logic to find student ...
+  // Route for saving voice data
+  if (req.method === "POST" && pathname === "/save-recording") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { studentInfo, audio, ext } = JSON.parse(body);
+        const studentFolder = path.join(RECORDINGS_DIR, studentInfo.roll.replace(/\s+/g, '_'));
+        
+        ensureDir(studentFolder);
+
+        const fileName = `voice_${Date.now()}.${ext || 'webm'}`;
+        fs.writeFileSync(path.join(studentFolder, fileName), Buffer.from(audio, "base64"));
+        
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, message: "Successfully saved to temporary storage." }));
+      } catch (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+    });
+    return;
   }
 
-  // API Route: GET /api/summary
-  if (req.method === "GET" && pathname === "/api/summary") {
-    // ... existing logic to return all students ...
+  // Route for Admin summary
+  if (req.method === "GET" && pathname === "/summary") {
+    ensureDir(RECORDINGS_DIR);
+    const folders = fs.readdirSync(RECORDINGS_DIR);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ studentCount: folders.length, folders }));
+    return;
   }
 
-  // API Route: POST /api/save-recording
-  if (req.method === "POST" && pathname === "/api/save-recording") {
-    // ... existing logic to save audio to /tmp ...
-  }
-
-  // If no API route matches, let Vercel handle it or return 404
   res.writeHead(404);
-  res.end("API route not found");
+  res.end("Not Found");
 });
 
+// CRITICAL: Export the server for Vercel's environment
 module.exports = server;
