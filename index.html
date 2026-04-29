@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceBank - Student Data Collection</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --danger: #dc2626; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        .input-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 1rem; transition: 0.2s; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .status { margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        #timer { font-weight: bold; color: var(--primary); margin-top: 5px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Student Voice Registration</h2>
+    <div class="input-group">
+        <label>Full Name</label>
+        <input type="text" id="name" placeholder="Enter your full name">
+    </div>
+    <div class="input-group">
+        <label>Roll Number</label>
+        <input type="text" id="roll" placeholder="Enter Roll Number">
+    </div>
+
+    <button id="recordBtn" class="btn">Start Recording</button>
+    <small id="timer">Duration: 0s (Limit: 5s - 30s)</small>
+    
+    <div id="statusMsg" class="status"></div>
+</div>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let startTime;
+    let timerInterval;
+    
+    const recordBtn = document.getElementById('recordBtn');
+    const statusMsg = document.getElementById('statusMsg');
+    const timerDisplay = document.getElementById('timer');
+
+    recordBtn.addEventListener('click', async () => {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    });
+
+    async function startRecording() {
+        const name = document.getElementById('name').value.trim();
+        const roll = document.getElementById('roll').value.trim();
+
+        if (!name || !roll) {
+            showStatus('Please enter Name and Roll Number first', 'error');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => processRecording(name, roll);
+
+            mediaRecorder.start();
+            startTime = Date.now();
+            
+            // Update UI
+            recordBtn.innerText = 'Stop Recording';
+            recordBtn.style.background = 'var(--danger)';
+            showStatus('Recording in progress...', 'success');
+            
+            // Start Timer
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timerDisplay.innerText = `Duration: ${elapsed}s (Limit: 5s - 30s)`;
+                if (elapsed >= 30) stopRecording(); // Auto-stop at 30s
+            }, 1000);
+
+        } catch (err) {
+            showStatus('Microphone access denied or not found.', 'error');
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            clearInterval(timerInterval);
+            recordBtn.innerText = 'Start Recording';
+            recordBtn.style.background = 'var(--primary)';
+        }
+    }
+
+    async function processRecording(name, roll) {
+        const duration = (Date.now() - startTime) / 1000;
+
+        if (duration < 5) {
+            showStatus(`Recording too short (${Math.floor(duration)}s). Minimum is 5s.`, 'error');
+            return;
+        }
+
+        showStatus('Uploading...', 'success');
+        
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        
+        reader.onloadend = async () => {
+            const base64Audio = reader.result.split(',')[1];
+            
+            try {
+                const response = await fetch('/save-recording', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        studentInfo: { name, roll, duration: duration.toFixed(1) },
+                        audio: base64Audio,
+                        ext: 'webm'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.ok) {
+                    showStatus('✅ Recording saved successfully!', 'success');
+                } else {
+                    showStatus('❌ Server Error: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showStatus('❌ Network error. Ensure Vercel deployment is active.', 'error');
+            }
+        };
+    }
+
+    function showStatus(msg, type) {
+        statusMsg.innerText = msg;
+        statusMsg.className = `status ${type}`;
+        statusMsg.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
