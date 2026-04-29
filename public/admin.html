@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceBank - Admin Dashboard</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; }
+        :root { --primary: #2563eb; --bg: #f8fafc; --danger: #dc2626; }
         body { font-family: system-ui, sans-serif; background: var(--bg); padding: 40px; }
         .container { max-width: 1000px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
@@ -13,7 +13,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; font-weight: 600; }
-        .btn-refresh { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
         .status-msg { padding: 10px; border-radius: 6px; margin-bottom: 10px; display: none; }
         .error { background: #fee2e2; color: #991b1b; }
     </style>
@@ -23,7 +23,7 @@
 <div class="container">
     <div class="header">
         <h1>Admin Dashboard</h1>
-        <button onclick="loadData()" class="btn-refresh">Refresh Data</button>
+        <button onclick="loadData()" class="btn">Refresh Data</button>
     </div>
 
     <div id="status" class="status-msg"></div>
@@ -37,10 +37,12 @@
                     <th>Name</th>
                     <th>Duration</th>
                     <th>Recorded At</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody id="studentTable">
-                </tbody>
+                <tr><td colspan="5">Click Refresh to load data.</td></tr>
+            </tbody>
         </table>
     </div>
 </div>
@@ -54,10 +56,10 @@
         const tableBody = document.getElementById('studentTable');
         
         statusDiv.style.display = 'none';
-        tableBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
 
         try {
-            // FIXED: Using relative path '/summary' instead of localhost:3000
+            // Using relative path to match Vercel rewrites
             const response = await fetch('/summary', {
                 method: 'GET',
                 headers: {
@@ -77,28 +79,39 @@
             statusDiv.innerText = err.message;
             statusDiv.className = 'status-msg error';
             statusDiv.style.display = 'block';
-            tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">Failed to load data.</td></tr>';
         }
     }
 
     function renderTable(students) {
         const tableBody = document.getElementById('studentTable');
         if (students.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="4">No recordings found in temporary storage.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5">No recordings found in temporary storage.</td></tr>';
             return;
         }
 
-        tableBody.innerHTML = students.map(s => `
-            <tr>
-                <td><strong>${s.roll || 'N/A'}</strong></td>
-                <td>${s.name || 'Unknown'}</td>
-                <td>${s.duration || '0'}s</td>
-                <td>${new Date(s.timestamp).toLocaleString()}</td>
-            </tr>
-        `).join('');
+        tableBody.innerHTML = students.map(s => {
+            // Fix for "Invalid Date" - uses the timestamp field saved by the backend
+            const dateDisplay = s.timestamp ? new Date(s.timestamp).toLocaleString() : "Recently Recorded";
+            
+            return `
+                <tr>
+                    <td><strong>${s.roll || 'N/A'}</strong></td>
+                    <td>${s.name || 'Unknown'}</td>
+                    <td>${s.duration || '0'}s</td>
+                    <td>${dateDisplay}</td>
+                    <td>
+                        <a href="/download?roll=${encodeURIComponent(s.roll)}&file=${encodeURIComponent(s.fileName)}" 
+                           class="btn" style="background:#10b981;">
+                           Download ⬇️
+                        </a>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
-    // Initial load
+    // Auto-load on page visit
     window.onload = loadData;
 </script>
 
