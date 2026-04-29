@@ -13,9 +13,9 @@
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; font-weight: 600; }
-        .btn { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 13px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 13px; display: inline-block; }
         .status-msg { padding: 10px; border-radius: 6px; margin-bottom: 10px; display: none; }
-        .error { background: #fee2e2; color: #991b1b; }
+        .error { background: #fee2e2; color: #991b1b; display: block !important; }
     </style>
 </head>
 <body>
@@ -46,44 +46,64 @@
     async function loadData() {
         const password = prompt("Enter Admin Password:");
         if (!password) return;
+        
         const tableBody = document.getElementById('studentTable');
-        tableBody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+        const statusDiv = document.getElementById('status');
+        
+        statusDiv.style.display = 'none';
+        tableBody.innerHTML = '<tr><td colspan="5">Loading permanent records...</td></tr>';
 
         try {
             const response = await fetch('/summary', {
                 method: 'GET',
                 headers: { 'X-Admin-Password': password }
             });
-            if (!response.ok) throw new Error('Invalid password');
+
+            if (response.status === 401) throw new Error('Incorrect Admin Password');
+            if (!response.ok) throw new Error('Failed to fetch data from server');
+
             const students = await response.json();
             renderTable(students);
         } catch (err) {
-            document.getElementById('status').style.display = 'block';
-            document.getElementById('status').innerText = err.message;
+            statusDiv.className = 'status-msg error';
+            statusDiv.innerText = err.message;
             tableBody.innerHTML = '';
         }
     }
 
     function renderTable(students) {
         const tableBody = document.getElementById('studentTable');
-        if (students.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">No recordings found.</td></tr>';
+        
+        if (!students || students.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="5">No permanent recordings found in Vercel Blob.</td></tr>';
             return;
         }
-        tableBody.innerHTML = students.map(s => `
-            <tr>
-                <td><strong>${s.roll}</strong></td>
-                <td>${s.name}</td>
-                <td>${s.duration}s</td>
-                <td>${s.timestamp ? new Date(s.timestamp).toLocaleString() : 'N/A'}</td>
-                <td>
-                    <a href="/download?roll=${encodeURIComponent(s.roll)}&file=${encodeURIComponent(s.fileName)}" class="btn">
-                        Download ⬇️
-                    </a>
-                </td>
-            </tr>
-        `).join('');
+
+        // We sort by timestamp (newest first) to help you track 80,000 clips
+        students.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        tableBody.innerHTML = students.map(s => {
+            // CRITICAL FIX: We use s.fileUrl (the permanent cloud link) 
+            // instead of a local /download route to prevent 404s.
+            const downloadLink = s.fileUrl; 
+            
+            return `
+                <tr>
+                    <td><strong>${s.roll || 'N/A'}</strong></td>
+                    <td>${s.name || 'Unknown'}</td>
+                    <td>${s.duration || '0'}s</td>
+                    <td>${s.timestamp ? new Date(s.timestamp).toLocaleString() : 'N/A'}</td>
+                    <td>
+                        <a href="${downloadLink}" target="_blank" class="btn" download>
+                            Download ⬇️
+                        </a>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
+
+    // Automatically prompt for login on page load
     window.onload = loadData;
 </script>
 </body>
