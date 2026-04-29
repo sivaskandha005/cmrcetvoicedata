@@ -15,3 +15,8 @@
   "author": "VoiceBank",
   "license": "MIT"
 }
+{
+  "dependencies": {
+    "@vercel/blob": "latest"
+  }
+}

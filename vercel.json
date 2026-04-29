@@ -1,17 +1,8 @@
 {
   "version": 2,
   "rewrites": [
-    {
-      "source": "/save-recording",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/summary",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/student/:roll",
-      "destination": "/api/index.js"
-    }
+    { "source": "/save-recording", "destination": "/api/index.js" },
+    { "source": "/summary", "destination": "/api/index.js" },
+    { "source": "/download", "destination": "/api/index.js" }
   ]
 }
