@@ -1,689 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VoiceBank Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/public/css/theme.css">
-<style>
-  body { background:var(--bg); }
-  body::before {
-    content:''; position:fixed; inset:0;
-    background-image: linear-gradient(rgba(255,159,71,.02) 1px,transparent 1px), linear-gradient(90deg,rgba(255,159,71,.02) 1px,transparent 1px);
-    background-size:40px 40px; pointer-events:none; z-index:0;
-  }
-
-  /* Login */
-  .login-screen { position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999; }
-  .login-box { background:var(--card);border:1px solid var(--border);border-radius:24px;padding:48px 40px;width:100%;max-width:420px;text-align:center; }
-  .login-icon { font-size:48px;margin-bottom:16px; }
-  .login-title { font-size:24px;font-weight:800;margin-bottom:4px; }
-  .login-sub { color:var(--muted);font-size:14px;margin-bottom:24px; }
-  .server-status { background:rgba(255,159,71,.08);border:1px solid rgba(255,159,71,.2);border-radius:10px;padding:10px 14px;margin-bottom:24px;font-family:'DM Mono',monospace;font-size:12px;display:flex;align-items:center;gap:8px; }
-  .status-dot { width:8px;height:8px;border-radius:50%;background:#606880;flex-shrink:0; }
-  .pwd-input { width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 18px;color:var(--text);font-family:'Syne',sans-serif;font-size:16px;outline:none;margin-bottom:12px;transition:border-color .2s;letter-spacing:3px;text-align:center; }
-  .pwd-input:focus { border-color:var(--admin); }
-  .login-btn { width:100%;background:var(--admin);color:#000;border:none;padding:14px;border-radius:12px;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;transition:all .2s; }
-  .login-btn:hover { filter:brightness(.9); }
-  .login-btn:disabled { opacity:.5;cursor:not-allowed; }
-  .login-err { color:var(--red);font-size:13px;margin-top:10px;min-height:20px; }
-  .help-box { display:none;margin-top:20px;background:rgba(255,77,107,.06);border:1px solid rgba(255,77,107,.2);border-radius:12px;padding:16px;text-align:left; }
-
-  /* Layout */
-  .app { display:none;position:relative;z-index:1; }
-  .app.visible { display:block; }
-  .topbar { background:var(--card);border-bottom:1px solid var(--border);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50; }
-  .topbar-left { display:flex;align-items:center;gap:12px; }
-  .logo-icon { width:36px;height:36px;background:var(--admin);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px; }
-  .logo-text { font-size:18px;font-weight:800; }
-  .logo-badge { font-family:'DM Mono',monospace;font-size:10px;background:rgba(255,159,71,.15);color:var(--admin);padding:3px 8px;border-radius:4px;border:1px solid rgba(255,159,71,.3); }
-  .top-link { font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-decoration:none;padding:8px 16px;border:1px solid var(--border);border-radius:8px;transition:all .2s; }
-  .top-link:hover { border-color:var(--blue);color:var(--blue); }
-  .logout-btn { background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all .2s; }
-  .logout-btn:hover { border-color:var(--red);color:var(--red); }
-
-  .main { max-width:980px;margin:0 auto;padding:40px 24px; }
-  .stats-row { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px; }
-  .stat-card { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 24px; }
-  .stat-label { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:8px; }
-  .stat-value { font-size:28px;font-weight:800;letter-spacing:-1px; }
-
-  /* Tabs */
-  .tab-bar { display:flex;border-bottom:1px solid var(--border);margin-bottom:24px; }
-  .tab { padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .2s; }
-  .tab.active { border-bottom-color:var(--admin);color:var(--text); }
-  .tab-panel { display:none; }
-  .tab-panel.active { display:block; }
-
-  /* Add form */
-  .add-card { background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;margin-bottom:32px; }
-  .form-row { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
-  .form-row-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px; }
-  .char-count { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:right;margin-top:4px; }
-  .telugu-hint { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:6px; }
-  .telugu-hint a { color:var(--blue);text-decoration:none; }
-  .form-actions { display:flex;justify-content:flex-end;gap:10px;margin-top:16px; }
-
-  /* Prompt list */
-  .list-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
-  .filters { display:flex;gap:8px;flex-wrap:wrap; }
-  .filter-btn { padding:6px 14px;border-radius:100px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all .2s;border:1px solid var(--border);background:transparent;color:var(--muted); }
-  .filter-btn.active { background:var(--admin);border-color:var(--admin);color:#000;font-weight:700; }
-  .prompt-list { display:flex;flex-direction:column;gap:12px; }
-  .p-card { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 24px;transition:border-color .2s; }
-  .p-card:hover { border-color:#3a3f52; }
-  .p-card.editing { border-color:var(--admin); }
-  .p-card-top { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px; }
-  .p-meta { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
-  .p-id { font-family:'DM Mono',monospace;font-size:11px;color:var(--muted); }
-  .lang-badge { font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px; }
-  .lang-Telugu  { background:rgba(255,159,71,.12);color:var(--admin);border:1px solid rgba(255,159,71,.25); }
-  .lang-English { background:rgba(71,200,255,.1); color:var(--blue); border:1px solid rgba(71,200,255,.2);  }
-  .lang-other   { background:rgba(77,255,145,.1); color:var(--green);border:1px solid rgba(77,255,145,.2);  }
-  .p-actions { display:flex;gap:6px;flex-shrink:0; }
-  .p-text { font-size:17px;font-weight:600;line-height:1.65;margin-bottom:10px; }
-  .p-translation { font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);border-left:2px solid var(--border);padding-left:10px;margin-bottom:10px; }
-
-  /* edit form inside card */
-  .edit-form { display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border); }
-  .edit-form.show { display:block; }
-  .edit-actions { display:flex;gap:8px;justify-content:flex-end;margin-top:12px; }
-
-  /* recordings table */
-  .rec-wrap { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden; }
-  .rec-table { width:100%;border-collapse:collapse; }
-  .rec-table th { text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;padding:12px 16px;border-bottom:1px solid var(--border); }
-  .rec-table td { padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px; }
-  .rec-table tr:last-child td { border-bottom:none; }
-  .rec-table tr:hover td { background:rgba(255,255,255,.02); }
-  .file-chips { display:flex;flex-wrap:wrap;gap:4px; }
-  .file-chip { font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;background:rgba(77,255,145,.08);color:var(--green);border:1px solid rgba(77,255,145,.2);border-radius:4px; }
-
-  
-  .rec-count-pill{display:inline-block;padding:3px 10px;border-radius:100px;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;}
-  .pill-high{background:rgba(77,255,145,.12);color:var(--green);border:1px solid rgba(77,255,145,.3);}
-  .pill-mid {background:rgba(71,200,255,.1); color:var(--blue); border:1px solid rgba(71,200,255,.2);}
-  .pill-low {background:rgba(107,114,128,.1);color:var(--muted);border:1px solid var(--border);}
-
-  
-  .mono  { font-family: 'DM Mono', monospace; }
-  .bold  { font-weight: 700; font-size: 13px; }
-  .small { font-size: 13px; }
-  .tiny  { font-size: 11px; }
-  .muted { color: var(--muted); }
-
-  .empty-state { text-align:center;padding:48px;color:var(--muted); }
-  .empty-icon { font-size:40px;margin-bottom:12px; }
-
-  @media(max-width:640px) {
-    .stats-row { grid-template-columns:1fr 1fr; }
-    .form-row, .form-row-3 { grid-template-columns:1fr; }
-    .topbar { padding:0 16px; }
-    .main { padding:24px 16px; }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceBank - Admin Dashboard</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); padding: 40px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; font-weight: 600; }
+        .btn-refresh { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+        .status-msg { padding: 10px; border-radius: 6px; margin-bottom: 10px; display: none; }
+        .error { background: #fee2e2; color: #991b1b; }
+    </style>
 </head>
 <body>
 
-<!-- ── Login ─────────────────────────────────────────────────────────────── -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-box">
-    <div class="server-status" id="serverStatus">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText" style="color:var(--muted)">Checking server...</span>
+<div class="container">
+    <div class="header">
+        <h1>Admin Dashboard</h1>
+        <button onclick="loadData()" class="btn-refresh">Refresh Data</button>
     </div>
-    <div class="login-icon">🔐</div>
-    <div class="login-title">Admin Login</div>
-    <div class="login-sub">VoiceBank Prompt Manager</div>
-    <input type="password" class="pwd-input" id="pwdInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">Login to Admin Panel</button>
-    <div class="login-err" id="loginErr"></div>
-    <div class="help-box" id="helpBox">
-      <div style="font-size:13px;font-weight:700;color:#ff8a9b;margin-bottom:10px">🔌 Server not running — fix it:</div>
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:2.2">
-        1. Open <strong style="color:var(--text)">Command Prompt</strong><br>
-        2. <code style="background:#0b0d11;padding:2px 6px;border-radius:4px;color:var(--admin)">cd path\to\voicebank</code><br>
-        3. <code style="background:#0b0d11;padding:2px 6px;border-radius:4px;color:var(--admin)">node server.js</code><br>
-        4. Keep that window <strong style="color:var(--text)">open</strong>, then click below
-      </div>
-      <button onclick="checkServer()" style="margin-top:12px;width:100%;padding:9px;background:rgba(255,159,71,.15);border:1px solid rgba(255,159,71,.3);border-radius:8px;color:var(--admin);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">↺ Check Again</button>
+
+    <div id="status" class="status-msg"></div>
+
+    <div class="card">
+        <h3>Student Recordings</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Roll Number</th>
+                    <th>Name</th>
+                    <th>Duration</th>
+                    <th>Recorded At</th>
+                </tr>
+            </thead>
+            <tbody id="studentTable">
+                </tbody>
+        </table>
     </div>
-  </div>
 </div>
 
-<!-- ── App ───────────────────────────────────────────────────────────────── -->
-<div class="app" id="app">
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="logo-icon">🎙️</div>
-      <div class="logo-text">VoiceBank</div>
-      <span class="logo-badge">ADMIN</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <a href="/" class="top-link">← Student App</a>
-      <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
-  </div>
-
-  <div class="main">
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">TOTAL PROMPTS</div><div class="stat-value" style="color:var(--admin)" id="stTotal">—</div></div>
-      <div class="stat-card"><div class="stat-label">TELUGU</div><div class="stat-value" style="color:var(--blue)" id="stTelugu">—</div></div>
-      <div class="stat-card"><div class="stat-label">TOTAL TAGS</div><div class="stat-value" style="color:var(--green)" id="stTags">—</div></div>
-      <div class="stat-card"><div class="stat-label">STUDENTS</div><div class="stat-value" style="color:var(--accent)" id="stStudents">—</div></div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tab-bar">
-      <div class="tab active" onclick="switchTab('prompts',this)">📝 Manage Prompts</div>
-      <div class="tab" onclick="switchTab('recordings',this)">🎙️ View Recordings</div>
-      <div class="tab" onclick="switchTab('summary',this)">📊 Roll-wise Summary</div>
-    </div>
-
-    <!-- ── TAB: Prompts ─────────────────────────────────────────────────── -->
-    <div class="tab-panel active" id="tab-prompts">
-
-      <!-- Add form -->
-      <div class="add-card">
-        <div class="section-label">ADD NEW PROMPT</div>
-        <div style="font-size:18px;font-weight:800;margin-bottom:20px">New Prompt</div>
-
-        <div class="form-row-3">
-          <div class="form-group">
-            <label>Language</label>
-            <select class="field" id="newLang">
-              <option>Telugu</option><option>English</option><option>Hindi</option>
-              <option>Tamil</option><option>Kannada</option><option>Other</option>
-            </select>
-          </div>
-          <div class="form-group" style="grid-column:span 2">
-            <label>Tags <span style="color:var(--muted);font-size:10px">(press Enter or comma to add)</span></label>
-            <div id="newTagsInput"></div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-bottom:8px">
-          <label>Prompt Text *</label>
-          <textarea class="field" id="newText" placeholder="Type or paste your Telugu / English text here…" oninput="document.getElementById('charCount').textContent=this.value.length"></textarea>
-          <div class="char-count"><span id="charCount">0</span> characters</div>
-          <div class="telugu-hint">💡 Tip: Use <a href="https://www.google.com/intl/te/inputtools/try/" target="_blank">Google Input Tools</a> or Win+Space to switch keyboard</div>
-        </div>
-
-        <div class="form-group" style="margin-bottom:0">
-          <label>English Translation <span style="color:var(--muted);font-size:10px">(optional — shown as hint to students)</span></label>
-          <input type="text" class="field" id="newTranslation" placeholder="English meaning…">
-        </div>
-
-        <div class="form-actions">
-          <button class="btn btn-ghost" onclick="clearAddForm()">Clear</button>
-          <button class="btn btn-admin" id="addBtn" onclick="addPrompt()">＋ Add Prompt</button>
-        </div>
-      </div>
-
-      <!-- List -->
-      <div class="list-header">
-        <div>
-          <div class="section-label">ALL PROMPTS</div>
-          <div style="font-size:18px;font-weight:800">Prompt Library</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" class="field" id="searchInput" placeholder="🔍 Search or tag…" style="width:200px;padding:8px 12px;font-size:13px" oninput="renderPrompts()">
-          <button class="btn btn-ghost btn-sm" onclick="loadPrompts()">↺</button>
-        </div>
-      </div>
-
-      <div class="filters" id="tagFilters" style="margin-bottom:16px">
-        <button class="filter-btn active" onclick="setFilter('',this)">All</button>
-      </div>
-
-      <div class="prompt-list" id="promptList">
-        <div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div>
-      </div>
-    </div>
-
-    <!-- ── TAB: Summary ────────────────────────────────────────────────── -->
-    <div class="tab-panel" id="tab-summary">
-      <div class="list-header">
-        <div><div class="section-label">ROLL-WISE</div><div style="font-size:18px;font-weight:800">Recording Summary</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" class="field" id="summarySearch" placeholder="🔍 Search roll / name…"
-                 style="width:200px;padding:8px 12px;font-size:13px" oninput="filterSummary()">
-          <button class="btn btn-ghost btn-sm" onclick="loadSummary()">↺</button>
-        </div>
-      </div>
-
-      <!-- Summary stats strip -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="summaryStats">
-        <div class="stat-card"><div class="stat-label">TOTAL STUDENTS</div><div class="stat-value" style="color:var(--admin)" id="sumStudents">—</div></div>
-        <div class="stat-card"><div class="stat-label">TOTAL RECORDINGS</div><div class="stat-value" style="color:var(--green)" id="sumRecs">—</div></div>
-        <div class="stat-card"><div class="stat-label">AVG PER STUDENT</div><div class="stat-value" style="color:var(--blue)" id="sumAvg">—</div></div>
-      </div>
-
-      <div class="rec-wrap">
-        <table class="rec-table" id="summaryTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>ROLL NO.</th>
-              <th>NAME</th>
-              <th>DEPARTMENT</th>
-              <th>YEAR / SEM</th>
-              <th>RECORDINGS</th>
-              <th>LAST SESSION</th>
-            </tr>
-          </thead>
-          <tbody id="summaryBody">
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Click the Summary tab to load data.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ── TAB: Recordings ──────────────────────────────────────────────── -->
-    <div class="tab-panel" id="tab-recordings">
-      <div class="list-header">
-        <div><div class="section-label">SUBMITTED</div><div style="font-size:18px;font-weight:800">Student Recordings</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="loadRecordings()">↺ Refresh</button>
-      </div>
-      <div class="rec-wrap">
-        <table class="rec-table">
-          <thead><tr><th>NAME</th><th>ID / ROLL</th><th>SUBMITTED</th><th>FILES</th></tr></thead>
-          <tbody id="recBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<!-- Shared tag widget -->
-<script src="/public/js/tags.js">
-
-// ══════════════════════════════════════════════════════════
-//  SUMMARY
-// ══════════════════════════════════════════════════════════
-var summaryData = [];
-
-async function loadSummary() {
-  try {
-    const r = await fetch('/summary', { headers: { 'X-Admin-Password': adminPassword } });
-    summaryData = await r.json();
-    renderSummary(summaryData);
-  } catch { showToast('Could not load summary', 'error'); }
-}
-
-function filterSummary() {
-  const q = (document.getElementById('summarySearch').value || '').toLowerCase();
-  const filtered = summaryData.filter(s =>
-    s.roll.toLowerCase().includes(q) ||
-    s.name.toLowerCase().includes(q) ||
-    (s.department || '').toLowerCase().includes(q)
-  );
-  renderSummary(filtered);
-}
-
-function renderSummary(data) {
-  const total    = data.length;
-  const totalRec = data.reduce((a, s) => a + s.recordings, 0);
-  const avg      = total > 0 ? (totalRec / total).toFixed(1) : 0;
-  document.getElementById('sumStudents').textContent = total;
-  document.getElementById('sumRecs').textContent     = totalRec;
-  document.getElementById('sumAvg').textContent      = avg;
-
-  const tbody = document.getElementById('summaryBody');
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">No students found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = data.map(function(s, i) {
-    const recCount  = s.recordings;
-    const pillClass = recCount >= 5 ? 'pill-high' : recCount >= 2 ? 'pill-mid' : 'pill-low';
-    const lastSess  = s.lastSession
-      ? new Date(s.lastSession).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
-      : '\u2014';
-    return '<tr>'
-      + '<td class="mono muted">'  + (i + 1)                                              + '</td>'
-      + '<td class="mono bold">'   + esc(s.roll)                                          + '</td>'
-      + '<td>'                     + esc(s.name)                                          + '</td>'
-      + '<td class="small muted">' + esc(s.department || '\u2014')                        + '</td>'
-      + '<td class="mono small">'  + esc((s.year || '\u2014') + ' / ' + (s.semester || '\u2014')) + '</td>'
-      + '<td><span class="rec-count-pill ' + pillClass + '">' + recCount + ' recording' + (recCount !== 1 ? 's' : '') + '</span></td>'
-      + '<td class="mono tiny muted">' + lastSess                                         + '</td>'
-      + '</tr>';
-  }).join('');
-}
-
-</script>
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
-let adminPassword = '';
-let allPrompts    = [];
-let activeFilter  = '';
-let newTagsWidget;
+    async function loadData() {
+        const password = prompt("Enter Admin Password:");
+        if (!password) return;
 
-// ── Init tag widget after DOM ready ──────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  newTagsWidget = new TagInput('newTagsInput');
-  checkServer();
-});
+        const statusDiv = document.getElementById('status');
+        const tableBody = document.getElementById('studentTable');
+        
+        statusDiv.style.display = 'none';
+        tableBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
 
-// ── Server status ─────────────────────────────────────────────────────────────
-async function checkServer() {
-  const dot  = document.getElementById('statusDot');
-  const txt  = document.getElementById('statusText');
-  const help = document.getElementById('helpBox');
-  const btn  = document.getElementById('loginBtn');
-  const bar  = document.getElementById('serverStatus');
+        try {
+            // FIXED: Using relative path '/summary' instead of localhost:3000
+            const response = await fetch('/summary', {
+                method: 'GET',
+                headers: {
+                    'X-Admin-Password': password,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-  dot.style.background = '#606880';
-  txt.style.color      = '#606880';
-  txt.textContent      = 'Checking server…';
+            if (!response.ok) {
+                throw new Error('Invalid password or server error');
+            }
 
-  try {
-    const r = await fetch('/prompts', { signal: AbortSignal.timeout(4000) });
-    if (!r.ok) throw new Error();
-    dot.style.background  = '#4dff91';
-    txt.style.color       = '#4dff91';
-    txt.textContent       = '✓ Server is running — enter password below';
-    bar.style.background  = 'rgba(77,255,145,.06)';
-    bar.style.borderColor = 'rgba(77,255,145,.2)';
-    help.style.display    = 'none';
-    btn.disabled          = false;
-  } catch {
-    dot.style.background  = '#ff4d6b';
-    txt.style.color       = '#ff8a9b';
-    txt.textContent       = '✗ Cannot reach server on localhost:3000';
-    bar.style.background  = 'rgba(255,77,107,.06)';
-    bar.style.borderColor = 'rgba(255,77,107,.2)';
-    help.style.display    = 'block';
-    btn.disabled          = true;
-  }
-}
+            const students = await response.json();
+            renderTable(students);
 
-// ── Login ─────────────────────────────────────────────────────────────────────
-async function doLogin() {
-  const pwd   = document.getElementById('pwdInput').value.trim();
-  const errEl = document.getElementById('loginErr');
-  const btn   = document.getElementById('loginBtn');
-  if (!pwd) { errEl.textContent = '⚠️ Enter the password.'; return; }
-  errEl.textContent = '';
-  btn.textContent   = 'Verifying…';
-  btn.disabled      = true;
-  try {
-    const r = await fetch('/admin/verify', { method:'POST', headers:{'X-Admin-Password':pwd}, signal:AbortSignal.timeout(5000) });
-    const d = await r.json();
-    if (d.ok) {
-      adminPassword = pwd;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      loadPrompts(); loadRecordings();
-    } else {
-      errEl.textContent = '❌ Wrong password. Default is: admin123';
-      btn.textContent   = 'Login to Admin Panel';
-      btn.disabled      = false;
+        } catch (err) {
+            statusDiv.innerText = err.message;
+            statusDiv.className = 'status-msg error';
+            statusDiv.style.display = 'block';
+            tableBody.innerHTML = '<tr><td colspan="4">Failed to load data.</td></tr>';
+        }
     }
-  } catch {
-    await checkServer();
-    errEl.textContent = '❌ Lost connection. See instructions above.';
-    btn.textContent   = 'Login to Admin Panel';
-    btn.disabled      = false;
-  }
-}
 
-function logout() {
-  adminPassword = '';
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('app').classList.remove('visible');
-  document.getElementById('pwdInput').value = '';
-}
+    function renderTable(students) {
+        const tableBody = document.getElementById('studentTable');
+        if (students.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4">No recordings found in temporary storage.</td></tr>';
+            return;
+        }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(name, el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'recordings') loadRecordings();
-  if (name === 'summary')    loadSummary();
-}
-
-// ── Load & render prompts ─────────────────────────────────────────────────────
-async function loadPrompts() {
-  try {
-    const r = await fetch('/prompts');
-    allPrompts = await r.json();
-    renderTagFilters();
-    renderPrompts();
-    updateStats();
-  } catch { showToast('Failed to load prompts', 'error'); }
-}
-
-function allTags() {
-  const set = new Set();
-  allPrompts.forEach(p => (p.tags||[]).forEach(t => set.add(t)));
-  return [...set].sort();
-}
-
-function renderTagFilters() {
-  const tags = allTags();
-  const bar  = document.getElementById('tagFilters');
-  bar.innerHTML = '<button class="filter-btn' + (!activeFilter ? ' active' : '') + '" onclick="setFilter(\'\',this)">All</button>';
-  tags.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = 'filter-btn' + (activeFilter === t ? ' active' : '');
-    btn.textContent = t;
-    btn.onclick = () => setFilter(t, btn);
-    bar.appendChild(btn);
-  });
-}
-
-function setFilter(tag, el) {
-  activeFilter = tag;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  renderPrompts();
-}
-
-function renderPrompts() {
-  const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-  let list = allPrompts;
-
-  if (activeFilter) list = list.filter(p => (p.tags||[]).includes(activeFilter));
-  if (search)       list = list.filter(p =>
-    p.text.toLowerCase().includes(search) ||
-    (p.translation||'').toLowerCase().includes(search) ||
-    (p.tags||[]).some(t => t.includes(search))
-  );
-
-  const el = document.getElementById('promptList');
-  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div>No prompts found.</div>'; return; }
-
-  el.innerHTML = list.map(p => {
-    const langClass = ['Telugu','English'].includes(p.language) ? 'lang-' + p.language : 'lang-other';
-    const tagsHtml  = (p.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    const editTags  = (p.tags||[]).map(t => esc(t)).join(', ');
-    return `
-    <div class="p-card" id="pcard-${p.id}">
-      <div class="p-card-top">
-        <div class="p-meta">
-          <span class="p-id">#${p.id}</span>
-          <span class="lang-badge ${langClass}">${p.language}</span>
-          <div class="tags-wrap">${tagsHtml}</div>
-        </div>
-        <div class="p-actions">
-          <button class="btn btn-ghost btn-sm" onclick="toggleEdit(${p.id})">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deletePrompt(${p.id})">🗑️</button>
-        </div>
-      </div>
-      <div class="p-text">${esc(p.text)}</div>
-      ${p.translation ? `<div class="p-translation">${esc(p.translation)}</div>` : ''}
-
-      <!-- inline edit form -->
-      <div class="edit-form" id="edit-${p.id}">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Language</label>
-            <select class="field" id="elang-${p.id}">
-              ${['Telugu','English','Hindi','Tamil','Kannada','Other'].map(l=>`<option${p.language===l?' selected':''}>${l}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Tags</label>
-            <div id="etags-${p.id}"></div>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:12px">
-          <label>Prompt Text *</label>
-          <textarea class="field" id="etext-${p.id}" style="min-height:80px">${esc(p.text)}</textarea>
-        </div>
-        <div class="form-group" style="margin-bottom:12px">
-          <label>Translation</label>
-          <input type="text" class="field" id="etr-${p.id}" value="${escAttr(p.translation||'')}">
-        </div>
-        <div class="edit-actions">
-          <button class="btn btn-ghost btn-sm" onclick="cancelEdit(${p.id})">Cancel</button>
-          <button class="btn btn-admin btn-sm" onclick="saveEdit(${p.id})">💾 Save</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function updateStats() {
-  const tags = new Set(allPrompts.flatMap(p => p.tags||[]));
-  document.getElementById('stTotal').textContent  = allPrompts.length;
-  document.getElementById('stTelugu').textContent = allPrompts.filter(p=>p.language==='Telugu').length;
-  document.getElementById('stTags').textContent   = tags.size;
-}
-
-// ── Add prompt ────────────────────────────────────────────────────────────────
-function clearAddForm() {
-  document.getElementById('newText').value = '';
-  document.getElementById('newTranslation').value = '';
-  document.getElementById('newLang').value = 'Telugu';
-  document.getElementById('charCount').textContent = '0';
-  newTagsWidget.setTags([]);
-}
-
-async function addPrompt() {
-  const text        = document.getElementById('newText').value.trim();
-  const language    = document.getElementById('newLang').value;
-  const translation = document.getElementById('newTranslation').value.trim();
-  const tags        = newTagsWidget.getTags();
-
-  if (!text) { showToast('Please enter prompt text', 'error'); return; }
-
-  const btn = document.getElementById('addBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Adding…';
-
-  try {
-    const r = await fetch('/admin/prompts', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Password':adminPassword},
-      body: JSON.stringify({ text, language, translation, tags })
-    });
-    const d = await r.json();
-    if (d.ok) { showToast('✅ Prompt added!', 'success'); clearAddForm(); await loadPrompts(); }
-    else        showToast('Error: ' + d.error, 'error');
-  } catch { showToast('Network error', 'error'); }
-
-  btn.disabled = false; btn.innerHTML = '＋ Add Prompt';
-}
-
-// ── Edit ──────────────────────────────────────────────────────────────────────
-let editWidgets = {};
-
-function toggleEdit(id) {
-  const ef   = document.getElementById('edit-' + id);
-  const card = document.getElementById('pcard-' + id);
-  const open = ef.classList.contains('show');
-  document.querySelectorAll('.edit-form').forEach(f => f.classList.remove('show'));
-  document.querySelectorAll('.p-card').forEach(c => c.classList.remove('editing'));
-  if (!open) {
-    ef.classList.add('show'); card.classList.add('editing');
-    // init tag widget for this card if not done yet
-    if (!editWidgets[id]) {
-      const p = allPrompts.find(x => x.id === id);
-      editWidgets[id] = new TagInput('etags-' + id, p ? (p.tags||[]) : []);
+        tableBody.innerHTML = students.map(s => `
+            <tr>
+                <td><strong>${s.roll || 'N/A'}</strong></td>
+                <td>${s.name || 'Unknown'}</td>
+                <td>${s.duration || '0'}s</td>
+                <td>${new Date(s.timestamp).toLocaleString()}</td>
+            </tr>
+        `).join('');
     }
-  }
-}
 
-function cancelEdit(id) {
-  document.getElementById('edit-' + id).classList.remove('show');
-  document.getElementById('pcard-' + id).classList.remove('editing');
-}
-
-async function saveEdit(id) {
-  const text        = document.getElementById('etext-' + id).value.trim();
-  const language    = document.getElementById('elang-' + id).value;
-  const translation = document.getElementById('etr-' + id).value.trim();
-  const tags        = editWidgets[id] ? editWidgets[id].getTags() : [];
-
-  if (!text) { showToast('Text cannot be empty', 'error'); return; }
-
-  try {
-    const r = await fetch('/admin/prompts/' + id, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Admin-Password':adminPassword},
-      body: JSON.stringify({ text, language, translation, tags })
-    });
-    const d = await r.json();
-    if (d.ok) {
-      showToast('✅ Saved!', 'success');
-      delete editWidgets[id];
-      await loadPrompts();
-    } else showToast('Error: ' + d.error, 'error');
-  } catch { showToast('Network error', 'error'); }
-}
-
-async function deletePrompt(id) {
-  if (!confirm('Delete this prompt? Cannot be undone.')) return;
-  try {
-    const r = await fetch('/admin/prompts/' + id, { method:'DELETE', headers:{'X-Admin-Password':adminPassword} });
-    const d = await r.json();
-    if (d.ok) { showToast('🗑️ Deleted', 'success'); await loadPrompts(); }
-    else        showToast('Error: ' + d.error, 'error');
-  } catch { showToast('Network error', 'error'); }
-}
-
-// ── Recordings ────────────────────────────────────────────────────────────────
-async function loadRecordings() {
-  try {
-    const r = await fetch('/list-recordings', { headers:{'X-Admin-Password':adminPassword} });
-    const data = await r.json();
-    document.getElementById('stStudents').textContent = data.length;
-    const tbody = document.getElementById('recBody');
-    if (!data.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">No recordings yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = data.map(s => `
-      <tr>
-        <td><strong>${esc(s.studentName)}</strong></td>
-        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${esc(s.studentId)}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—'}</td>
-        <td><div class="file-chips">${s.files.map(f=>`<span class="file-chip">${f}</span>`).join('')}</div></td>
-      </tr>`).join('');
-  } catch { showToast('Could not load recordings', 'error'); }
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
-}
-
-// ── Utils ─────────────────────────────────────────────────────────────────────
-function esc(t)     { return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escAttr(t) { return String(t||'').replace(/"/g,'&quot;'); }
+    // Initial load
+    window.onload = loadData;
 </script>
+
 </body>
 </html>
